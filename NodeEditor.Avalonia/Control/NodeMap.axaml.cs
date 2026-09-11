@@ -34,7 +34,14 @@ public partial class NodeMap : UserControl
         InitializeComponent();
         Subscribe();
         ApplyTransform();
-        AttachedToVisualTree += (_, _) => RedrawConnections();
+        MiniMap.Navigate += OnMiniMapNavigate;
+        AttachedToVisualTree += (_, _) =>
+        {
+            RedrawConnections();
+            UpdateMiniMapContent();
+            UpdateMiniMapView();
+        };
+        SizeChanged += (_, _) => UpdateMiniMapView();
     }
 
     public NodeManager Manager { get; }
@@ -63,10 +70,28 @@ public partial class NodeMap : UserControl
         return Manager.ExportJson();
     }
 
+    /// <summary>
+    /// 用 Export JSON 还原节点视图，会先清空当前画布。
+    /// </summary>
+    public void ImportJson(string json)
+    {
+        CancelPending();
+        Select(null);
+        Manager.ImportJson(json);
+        Dispatcher.UIThread.Post(() =>
+        {
+            RedrawConnections();
+            UpdateMiniMapContent();
+            UpdateMiniMapView();
+        }, DispatcherPriority.Loaded);
+    }
+
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
         Focus();
+        if (FindAncestor<MiniMapView>(e.Source) != null)
+            return;
         var point = e.GetPosition(this);
         var props = e.GetCurrentPoint(this).Properties;
 
@@ -141,6 +166,8 @@ public partial class NodeMap : UserControl
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if (FindAncestor<MiniMapView>(e.Source) != null && _dragging == null && !_panning && _pendingPin == null)
+            return;
         var point = e.GetPosition(this);
         if (_pendingPin != null)
         {
@@ -163,6 +190,8 @@ public partial class NodeMap : UserControl
             }
 
             UpdateWireGeometries();
+            UpdateMiniMapContent();
+            UpdateMiniMapView();
             return;
         }
 
@@ -278,7 +307,12 @@ public partial class NodeMap : UserControl
             RedrawConnections();
         };
         control.LayoutUpdated += handler;
-        Dispatcher.UIThread.Post(RedrawConnections, DispatcherPriority.Loaded);
+        Dispatcher.UIThread.Post(() =>
+        {
+            RedrawConnections();
+            UpdateMiniMapContent();
+            UpdateMiniMapView();
+        }, DispatcherPriority.Loaded);
     }
 
     private void OnNodeRemoved(NodeInstance instance)
@@ -288,6 +322,8 @@ public partial class NodeMap : UserControl
         NodeLayer.Children.Remove(control);
         if (_selected == control)
             _selected = null;
+        UpdateMiniMapContent();
+        UpdateMiniMapView();
     }
 
     private void Select(NodeControl? control)
@@ -405,6 +441,7 @@ public partial class NodeMap : UserControl
 
         if (_tempPath != null && !ConnectionLayer.Children.Contains(_tempPath))
             ConnectionLayer.Children.Add(_tempPath);
+        UpdateMiniMapContent();
     }
 
     private void UpdateWireGeometries()
@@ -492,6 +529,31 @@ public partial class NodeMap : UserControl
     {
         World.RenderTransformOrigin = new RelativePoint(0, 0, RelativeUnit.Relative);
         World.RenderTransform = new MatrixTransform(new Matrix(_scale, 0, 0, _scale, _offset.X, _offset.Y));
+        UpdateMiniMapView();
+    }
+
+    private void UpdateMiniMapContent()
+    {
+        MiniMap?.SyncGraph(_controls, Manager.Connections, Manager);
+    }
+
+    private void UpdateMiniMapView()
+    {
+        if (MiniMap == null)
+            return;
+        MiniMap.SetView(new Rect(
+            -_offset.X / _scale,
+            -_offset.Y / _scale,
+            Math.Max(Bounds.Width / _scale, 1),
+            Math.Max(Bounds.Height / _scale, 1)));
+    }
+
+    private void OnMiniMapNavigate(Point worldCenter)
+    {
+        _offset = new Vector(
+            Bounds.Width / 2 - worldCenter.X * _scale,
+            Bounds.Height / 2 - worldCenter.Y * _scale);
+        ApplyTransform();
     }
 
     private Point ToWorld(Point screen)

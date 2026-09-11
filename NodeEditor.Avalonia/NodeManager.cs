@@ -120,8 +120,18 @@ public sealed class NodeManager
     /// </summary>
     public NodeInstance Create(string typeName, double x, double y)
     {
+        return Create(typeName, x, y, Guid.NewGuid(), null);
+    }
+
+    /// <summary>
+    /// 用指定 uuid 和数据源值创建节点。id 冲突会抛错；value 按节点类型转换。
+    /// </summary>
+    public NodeInstance Create(string typeName, double x, double y, Guid id, object? value)
+    {
         var definition = Resolve(typeName) ?? throw new InvalidOperationException($"node '{typeName}' is not registered");
-        var instance = new NodeInstance(Guid.NewGuid(), definition, x, y);
+        if (_instances.ContainsKey(id))
+            throw new InvalidOperationException($"node '{id}' already exists");
+        var instance = new NodeInstance(id, definition, x, y, ConvertValue(definition.ValueKind, value));
         _instances[instance.Id] = instance;
         NodeCreated?.Invoke(instance);
         Changed?.Invoke();
@@ -227,10 +237,10 @@ public sealed class NodeManager
         var result = new List<ExportedNode>(_instances.Count);
         foreach (var instance in _instances.Values)
         {
-            var inputs = new string?[instance.Definition.Inputs.Count];
+            var inputs = Enumerable.Repeat<string?>(null, instance.Definition.Inputs.Count).ToList();
             var outputs = Enumerable.Range(0, instance.Definition.Outputs.Count)
                 .Select(_ => new List<string>())
-                .ToArray();
+                .ToList();
             foreach (var connection in _connections)
             {
                 if (connection.FromNodeId == instance.Id)
@@ -260,11 +270,137 @@ public sealed class NodeManager
     /// </summary>
     public string ExportJson()
     {
-        return JsonSerializer.Serialize(Export(), new JsonSerializerOptions
+        return JsonSerializer.Serialize(Export(), JsonOptions);
+    }
+
+    /// <summary>
+    /// 清空画布上全部节点和连线。
+    /// </summary>
+    public void Clear()
+    {
+        foreach (var id in _instances.Keys.ToList())
+            Remove(id);
+    }
+
+    /// <summary>
+    /// 用 Export() 同结构的 JSON 还原节点、位置、数据源值和连线。已注册类型缺失会跳过该节点。
+    /// </summary>
+    public void ImportJson(string json)
+    {
+        var nodes = JsonSerializer.Deserialize<List<ExportedNode>>(json, JsonOptions) ?? [];
+        Import(nodes);
+    }
+
+    /// <summary>
+    /// 用导出节点列表还原视图，先清空再按 uuid 重建并接线。
+    /// </summary>
+    public void Import(IReadOnlyList<ExportedNode> nodes)
+    {
+        Clear();
+        foreach (var node in nodes)
         {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
+            if (Resolve(node.Type) == null)
+                continue;
+            var id = Guid.TryParse(node.Id, out var parsed) ? parsed : Guid.NewGuid();
+            Create(node.Type, node.X, node.Y, id, node.Value);
+        }
+
+        foreach (var node in nodes)
+        {
+            if (!Guid.TryParse(node.Id, out var fromId) || !_instances.ContainsKey(fromId))
+                continue;
+            RestoreConnections(fromId, node);
+        }
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
+    };
+
+    private void RestoreConnections(Guid fromId, ExportedNode node)
+    {
+        if (node.Outputs is { Count: > 0 })
+        {
+            for (var i = 0; i < node.Outputs.Count; i++)
+            {
+                foreach (var target in node.Outputs[i])
+                {
+                    if (TryParseRef(target, out var toId, out var toIndex))
+                        TryConnect(fromId, i, toId, toIndex);
+                }
+            }
+
+            return;
+        }
+
+        if (node.Inputs == null)
+            return;
+        for (var i = 0; i < node.Inputs.Count; i++)
+        {
+            if (!TryParseRef(node.Inputs[i], out var fromNodeId, out var fromOutput))
+                continue;
+            TryConnect(fromNodeId, fromOutput, fromId, i);
+        }
+    }
+
+    private void TryConnect(Guid fromNodeId, int fromOutputIndex, Guid toNodeId, int toInputIndex)
+    {
+        try
+        {
+            Connect(fromNodeId, fromOutputIndex, toNodeId, toInputIndex);
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private static bool TryParseRef(string? value, out Guid id, out int index)
+    {
+        id = default;
+        index = 0;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+        var sep = value.LastIndexOf(':');
+        if (sep <= 0 || sep == value.Length - 1)
+            return false;
+        return Guid.TryParse(value[..sep], out id) && int.TryParse(value[(sep + 1)..], out index);
+    }
+
+    private static object? ConvertValue(NodeValueKind? kind, object? value)
+    {
+        if (kind == null)
+            return null;
+        if (value is JsonElement element)
+            return ConvertJson(kind.Value, element);
+        if (value == null)
+            return NodeInstance.DefaultValue(kind);
+        return kind switch
+        {
+            NodeValueKind.Int => Convert.ToInt32(value),
+            NodeValueKind.Long => Convert.ToInt64(value),
+            NodeValueKind.Float => Convert.ToSingle(value),
+            NodeValueKind.Double => Convert.ToDouble(value),
+            NodeValueKind.Bool => Convert.ToBoolean(value),
+            NodeValueKind.String => Convert.ToString(value) ?? "",
+            _ => value
+        };
+    }
+
+    private static object ConvertJson(NodeValueKind kind, JsonElement element)
+    {
+        return kind switch
+        {
+            NodeValueKind.Int => element.ValueKind == JsonValueKind.Number ? element.GetInt32() : 0,
+            NodeValueKind.Long => element.ValueKind == JsonValueKind.Number ? element.GetInt64() : 0L,
+            NodeValueKind.Float => element.ValueKind == JsonValueKind.Number ? element.GetSingle() : 0f,
+            NodeValueKind.Double => element.ValueKind == JsonValueKind.Number ? element.GetDouble() : 0d,
+            NodeValueKind.Bool => element.ValueKind == JsonValueKind.True ||
+                                  (element.ValueKind == JsonValueKind.False ? false : element.GetBoolean()),
+            _ => element.ValueKind == JsonValueKind.String ? element.GetString() ?? "" : element.ToString()
+        };
     }
 
     private NodeDefinition? Resolve(string typeName)

@@ -14,6 +14,7 @@
                 Padding="8,6">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Content="Export JSON" Click="OnExportClick"/>
+                <Button Content="Import JSON" Click="OnImportClick"/>
                 <TextBlock x:Name="HintText"
                            Text="右键空白处创建节点，拖标题移动，端点拖拽连线，右键端点/连线断开，Delete 删除"
                            VerticalAlignment="Center"

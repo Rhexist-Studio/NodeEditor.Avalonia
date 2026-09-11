@@ -8,6 +8,6 @@ public sealed class ExportedNode
     public double X { get; set; }
     public double Y { get; set; }
     public object? Value { get; set; }
-    public IReadOnlyList<string?> Inputs { get; set; } = [];
-    public IReadOnlyList<IReadOnlyList<string>> Outputs { get; set; } = [];
+    public List<string?> Inputs { get; set; } = [];
+    public List<List<string>> Outputs { get; set; } = [];
 }

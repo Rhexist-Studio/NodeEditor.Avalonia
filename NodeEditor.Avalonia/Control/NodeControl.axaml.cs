@@ -37,6 +37,9 @@ public class NodeControl : TemplatedControl
     public static readonly DirectProperty<NodeControl, Guid> InstanceIdProperty =
         AvaloniaProperty.RegisterDirect<NodeControl, Guid>(nameof(InstanceId), o => o.InstanceId);
 
+    public static readonly StyledProperty<bool> IsReadOnlyProperty =
+        AvaloniaProperty.Register<NodeControl, bool>(nameof(IsReadOnly));
+
     private Border? _titleBar;
     private ContentControl? _valueHost;
     private NodeInstance? _instance;
@@ -89,6 +92,14 @@ public class NodeControl : TemplatedControl
         get => GetValue(ValueProperty);
         set => SetValue(ValueProperty, value);
     }
+
+    public bool IsReadOnly
+    {
+        get => GetValue(IsReadOnlyProperty);
+        set => SetValue(IsReadOnlyProperty, value);
+    }
+
+    public NodeInstance? Instance => _instance;
 
     public Guid InstanceId
     {
@@ -150,7 +161,21 @@ public class NodeControl : TemplatedControl
     {
         if (_valueHost == null || _instance?.Definition.ValueKind == null)
             return;
-        _valueHost.Content = CreateEditor(_instance.Definition.ValueKind.Value, _instance.Value);
+        _valueHost.Content = IsReadOnly
+            ? CreateReadOnlyValue(_instance.Definition.ValueKind.Value, _instance.Value)
+            : CreateEditor(_instance.Definition.ValueKind.Value, _instance.Value);
+    }
+
+    private static TextBlock CreateReadOnlyValue(NodeValueKind kind, object? value)
+    {
+        return new TextBlock
+        {
+            Text = kind == NodeValueKind.Bool
+                ? (value is true ? "true" : "false")
+                : value?.ToString() ?? "",
+            Foreground = Brushes.White,
+            VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center
+        };
     }
 
     private global::Avalonia.Controls.Control CreateEditor(NodeValueKind kind, object? value)

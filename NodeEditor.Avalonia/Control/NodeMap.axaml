@@ -2,17 +2,27 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="using:NodeEditor.Avalonia.Control"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="NodeEditor.Avalonia.Control.NodeMap"
              Focusable="True"
              ClipToBounds="True"
              Background="#FF1A1A1A">
-    <Canvas x:Name="World"
-            ClipToBounds="False"
-            RenderTransformOrigin="0,0"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch">
-        <Canvas x:Name="ConnectionLayer" ClipToBounds="False"/>
-        <Canvas x:Name="NodeLayer" ClipToBounds="False"/>
-    </Canvas>
+    <Panel>
+        <Canvas x:Name="World"
+                ClipToBounds="False"
+                RenderTransformOrigin="0,0"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+            <Canvas x:Name="ConnectionLayer" ClipToBounds="False"/>
+            <Canvas x:Name="NodeLayer" ClipToBounds="False"/>
+        </Canvas>
+        <controls:MiniMapView x:Name="MiniMap"
+                              Width="220"
+                              Height="140"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Bottom"
+                              Margin="12"
+                              IsHitTestVisible="True"/>
+    </Panel>
 </UserControl>
