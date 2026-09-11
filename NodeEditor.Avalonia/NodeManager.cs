@@ -20,99 +20,70 @@ public sealed class NodeManager
     public event Action? Changed;
 
     /// <summary>
-    /// 注册节点类型。name 如 SendMessage，导出类型为 node:sendMessage；title 为标题栏文字；titleColor 为标题栏颜色；inputs/outputs 为引脚名，顺序对应端点 :0,:1,:2...
+    /// 注册节点类型。name 如 SendMessage；ns 为导出类型，空则自动生成 node:sendMessage；title 为标题栏文字；titleColor 为标题栏颜色；inputs/outputs 为引脚名，顺序对应端点 :0,:1,:2...
     /// </summary>
     public NodeDefinition Register(
         string name,
         string title,
         Color titleColor,
         IReadOnlyList<string>? inputs = null,
-        IReadOnlyList<string>? outputs = null)
+        IReadOnlyList<string>? outputs = null,
+        string? ns = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("name is required", nameof(name));
-        if (string.IsNullOrWhiteSpace(title))
-            throw new ArgumentException("title is required", nameof(title));
-
-        var trimmed = name.Trim();
-        if (_byName.ContainsKey(trimmed))
-            throw new InvalidOperationException($"node '{trimmed}' already registered");
-
-        var ns = ToNamespace(trimmed);
-        if (_byNamespace.ContainsKey(ns))
-            throw new InvalidOperationException($"namespace '{ns}' already registered");
-
-        var inputPins = ToPins(inputs);
-        var outputPins = ToPins(outputs);
-        var definition = new NodeDefinition(trimmed, ns, title, titleColor, inputPins, outputPins);
-        _byName[trimmed] = definition;
-        _byNamespace[ns] = definition;
-        return definition;
+        return Add(name, title, titleColor, ToPins(inputs), ToPins(outputs), null, ns);
     }
 
     /// <summary>
-    /// 注册数据源节点。kind 决定可编辑值和导出类型，只有一个输出端点 Value，无输入。
+    /// 注册数据源节点。kind 决定可编辑值和导出类型，只有一个输出端点 Value，无输入；ns 空则自动生成 node:int 这类命名空间。
     /// </summary>
-    public NodeDefinition RegisterDataSource(string name, string title, Color titleColor, NodeValueKind kind)
+    public NodeDefinition RegisterDataSource(
+        string name,
+        string title,
+        Color titleColor,
+        NodeValueKind kind,
+        string? ns = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("name is required", nameof(name));
-        if (string.IsNullOrWhiteSpace(title))
-            throw new ArgumentException("title is required", nameof(title));
-
-        var trimmed = name.Trim();
-        if (_byName.ContainsKey(trimmed))
-            throw new InvalidOperationException($"node '{trimmed}' already registered");
-
-        var ns = ToNamespace(trimmed);
-        if (_byNamespace.ContainsKey(ns))
-            throw new InvalidOperationException($"namespace '{ns}' already registered");
-
-        var definition = new NodeDefinition(
-            trimmed,
-            ns,
-            title,
-            titleColor,
-            [],
-            [new NodePinDefinition("Value", 0)],
-            kind);
-        _byName[trimmed] = definition;
-        _byNamespace[ns] = definition;
-        return definition;
+        return Add(name, title, titleColor, [], [new NodePinDefinition("Value", 0)], kind, ns);
     }
 
     /// <summary>
-    /// 注册数据源节点，titleColor 为可解析颜色字符串。其余参数与 RegisterDataSource(name, title, Color, kind) 相同。
+    /// 注册数据源节点，titleColor 为可解析颜色字符串。其余参数与 RegisterDataSource(name, title, Color, kind, ns) 相同。
     /// </summary>
-    public NodeDefinition RegisterDataSource(string name, string title, string titleColor, NodeValueKind kind)
+    public NodeDefinition RegisterDataSource(
+        string name,
+        string title,
+        string titleColor,
+        NodeValueKind kind,
+        string? ns = null)
     {
-        return RegisterDataSource(name, title, Color.Parse(titleColor), kind);
+        return RegisterDataSource(name, title, Color.Parse(titleColor), kind, ns);
     }
 
     /// <summary>
-    /// 一次性注册常用数据源：Int / Long / Float / Double / String / Bool，导出类型为 node:int 这类命名空间。
+    /// 一次性注册常用数据源：Int / Long / Float / Double / String / Bool，导出类型为 data:int 这类命名空间。
     /// </summary>
     public void RegisterCommonDataSources()
     {
-        RegisterDataSource("Int", "Int", "#2F6FED", NodeValueKind.Int);
-        RegisterDataSource("Long", "Long", "#1F5FBF", NodeValueKind.Long);
-        RegisterDataSource("Float", "Float", "#7A4AE0", NodeValueKind.Float);
-        RegisterDataSource("Double", "Double", "#5B32B8", NodeValueKind.Double);
-        RegisterDataSource("String", "String", "#C46B1A", NodeValueKind.String);
-        RegisterDataSource("Bool", "Bool", "#2E8B57", NodeValueKind.Bool);
+        RegisterDataSource("Int", "Int", "#2F6FED", NodeValueKind.Int, "data:int");
+        RegisterDataSource("Long", "Long", "#1F5FBF", NodeValueKind.Long, "data:long");
+        RegisterDataSource("Float", "Float", "#7A4AE0", NodeValueKind.Float, "data:float");
+        RegisterDataSource("Double", "Double", "#5B32B8", NodeValueKind.Double, "data:double");
+        RegisterDataSource("String", "String", "#C46B1A", NodeValueKind.String, "data:string");
+        RegisterDataSource("Bool", "Bool", "#2E8B57", NodeValueKind.Bool, "data:bool");
     }
 
     /// <summary>
-    /// 注册节点类型，titleColor 为可解析颜色字符串，如 #8B1E1E 或 DarkRed。其余参数与 Register(name, title, Color, ...) 相同。
+    /// 注册节点类型，titleColor 为可解析颜色字符串，如 #8B1E1E 或 DarkRed。ns 空则自动生成 node:sendMessage。
     /// </summary>
     public NodeDefinition Register(
         string name,
         string title,
         string titleColor,
         IReadOnlyList<string>? inputs = null,
-        IReadOnlyList<string>? outputs = null)
+        IReadOnlyList<string>? outputs = null,
+        string? ns = null)
     {
-        return Register(name, title, Color.Parse(titleColor), inputs, outputs);
+        return Register(name, title, Color.Parse(titleColor), inputs, outputs, ns);
     }
 
     /// <summary>
@@ -401,6 +372,34 @@ public sealed class NodeManager
                                   (element.ValueKind == JsonValueKind.False ? false : element.GetBoolean()),
             _ => element.ValueKind == JsonValueKind.String ? element.GetString() ?? "" : element.ToString()
         };
+    }
+
+    private NodeDefinition Add(
+        string name,
+        string title,
+        Color titleColor,
+        IReadOnlyList<NodePinDefinition> inputs,
+        IReadOnlyList<NodePinDefinition> outputs,
+        NodeValueKind? kind,
+        string? ns)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("name is required", nameof(name));
+        if (string.IsNullOrWhiteSpace(title))
+            throw new ArgumentException("title is required", nameof(title));
+
+        var trimmed = name.Trim();
+        if (_byName.ContainsKey(trimmed))
+            throw new InvalidOperationException($"node '{trimmed}' already registered");
+
+        var space = string.IsNullOrWhiteSpace(ns) ? ToNamespace(trimmed) : ns.Trim();
+        if (_byNamespace.ContainsKey(space))
+            throw new InvalidOperationException($"namespace '{space}' already registered");
+
+        var definition = new NodeDefinition(trimmed, space, title, titleColor, inputs, outputs, kind);
+        _byName[trimmed] = definition;
+        _byNamespace[space] = definition;
+        return definition;
     }
 
     private NodeDefinition? Resolve(string typeName)

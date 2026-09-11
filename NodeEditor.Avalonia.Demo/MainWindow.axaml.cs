@@ -30,19 +30,22 @@ public partial class MainWindow : Window
             "Send Message",
             Color.Parse("#8B1E1E"),
             ["Target", "Content"],
-            ["Next"]);
+            ["Next"],
+            "action:sendMessage");
         manager.Register(
             "Print",
             "Print",
             Color.Parse("#1E4D8B"),
             ["Exec", "Text"],
-            ["Next"]);
+            ["Next"],
+            "action:print");
         manager.Register(
             "Branch",
             "Branch",
             Color.Parse("#2E7D32"),
             ["Exec", "Condition"],
-            ["True", "False"]);
+            ["True", "False"],
+            "logic:branch");
     }
 
     /// <summary>

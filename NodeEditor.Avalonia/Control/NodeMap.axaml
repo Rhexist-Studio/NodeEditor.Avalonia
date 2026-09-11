@@ -17,6 +17,14 @@
             <Canvas x:Name="ConnectionLayer" ClipToBounds="False"/>
             <Canvas x:Name="NodeLayer" ClipToBounds="False"/>
         </Canvas>
+        <Canvas x:Name="OverlayLayer" IsHitTestVisible="False">
+            <Rectangle x:Name="SelectionBox"
+                       Stroke="#FF5B9BD5"
+                       StrokeThickness="1"
+                       Fill="#335B9BD5"
+                       StrokeDashArray="4,3"
+                       IsVisible="False"/>
+        </Canvas>
         <controls:MiniMapView x:Name="MiniMap"
                               Width="220"
                               Height="140"

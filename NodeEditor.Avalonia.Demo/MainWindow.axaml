@@ -16,7 +16,7 @@
                 <Button Content="Export JSON" Click="OnExportClick"/>
                 <Button Content="Import JSON" Click="OnImportClick"/>
                 <TextBlock x:Name="HintText"
-                           Text="右键空白处创建节点，拖标题移动，端点拖拽连线，右键端点/连线断开，Delete 删除"
+                           Text="左键框选，中键平移，右键创建，拖标题移动，端点连线，Delete 删除"
                            VerticalAlignment="Center"
                            Opacity="0.7"/>
             </StackPanel>

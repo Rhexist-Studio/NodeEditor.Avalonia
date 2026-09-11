@@ -15,12 +15,13 @@ public partial class NodeMap : UserControl
     private readonly Dictionary<Guid, NodeControl> _controls = [];
     private readonly Dictionary<NodeConnection, ConnectionWire> _wires = [];
     private ConnectionWire? _hoveredWire;
-    private NodeControl? _selected;
+    private readonly HashSet<NodeControl> _selected = [];
+    private readonly Dictionary<NodeControl, Point> _dragOrigins = [];
     private NodeControl? _dragging;
     private Point _dragPointerStart;
-    private double _dragNodeStartX;
-    private double _dragNodeStartY;
     private bool _panning;
+    private bool _marquee;
+    private Point _marqueeStart;
     private Point _panStart;
     private Vector _offset;
     private double _scale = 1;
@@ -76,7 +77,7 @@ public partial class NodeMap : UserControl
     public void ImportJson(string json)
     {
         CancelPending();
-        Select(null);
+        ClearSelection();
         Manager.ImportJson(json);
         Dispatcher.UIThread.Post(() =>
         {
@@ -106,7 +107,7 @@ public partial class NodeMap : UserControl
 
             if (props.IsLeftButtonPressed)
             {
-                Select(pinNode);
+                SelectOnly(pinNode);
                 HandlePinPressed(pin);
                 if (_pendingPin != null)
                     e.Pointer.Capture(this);
@@ -126,16 +127,13 @@ public partial class NodeMap : UserControl
         if (FindNode(e.Source, out var node))
         {
             CancelPending();
-            Select(node);
+            if (!_selected.Contains(node))
+                SelectOnly(node);
             if (IsEditorSource(e.Source))
                 return;
             if (props.IsLeftButtonPressed && node.IsHeaderSource(e.Source as Visual))
             {
-                _dragging = node;
-                _dragPointerStart = point;
-                _dragNodeStartX = Canvas.GetLeft(node);
-                _dragNodeStartY = Canvas.GetTop(node);
-                node.ZIndex = _controls.Count + 1;
+                BeginDrag(node, point);
                 e.Pointer.Capture(this);
             }
 
@@ -146,18 +144,29 @@ public partial class NodeMap : UserControl
         if (props.IsRightButtonPressed)
         {
             CancelPending();
-            Select(null);
+            ClearSelection();
             OpenCreateMenu(ToWorld(point));
             e.Handled = true;
             return;
         }
 
-        if (props.IsLeftButtonPressed || props.IsMiddleButtonPressed)
+        if (props.IsMiddleButtonPressed)
         {
             CancelPending();
-            Select(null);
             _panning = true;
             _panStart = point;
+            e.Pointer.Capture(this);
+            e.Handled = true;
+            return;
+        }
+
+        if (props.IsLeftButtonPressed)
+        {
+            CancelPending();
+            ClearSelection();
+            _marquee = true;
+            _marqueeStart = point;
+            UpdateMarquee(point);
             e.Pointer.Capture(this);
             e.Handled = true;
         }
@@ -166,7 +175,7 @@ public partial class NodeMap : UserControl
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (FindAncestor<MiniMapView>(e.Source) != null && _dragging == null && !_panning && _pendingPin == null)
+        if (FindAncestor<MiniMapView>(e.Source) != null && _dragging == null && !_panning && !_marquee && _pendingPin == null)
             return;
         var point = e.GetPosition(this);
         if (_pendingPin != null)
@@ -177,21 +186,7 @@ public partial class NodeMap : UserControl
 
         if (_dragging != null)
         {
-            var worldDelta = (point - _dragPointerStart) / _scale;
-            var x = _dragNodeStartX + worldDelta.X;
-            var y = _dragNodeStartY + worldDelta.Y;
-            Canvas.SetLeft(_dragging, x);
-            Canvas.SetTop(_dragging, y);
-            var instance = Manager.GetInstance(_dragging.InstanceId);
-            if (instance != null)
-            {
-                instance.X = x;
-                instance.Y = y;
-            }
-
-            UpdateWireGeometries();
-            UpdateMiniMapContent();
-            UpdateMiniMapView();
+            MoveSelection(point);
             return;
         }
 
@@ -200,6 +195,12 @@ public partial class NodeMap : UserControl
             _offset += point - _panStart;
             _panStart = point;
             ApplyTransform();
+            return;
+        }
+
+        if (_marquee)
+        {
+            UpdateMarquee(point);
             return;
         }
 
@@ -227,8 +228,10 @@ public partial class NodeMap : UserControl
 
         if (_dragging != null)
         {
-            _dragging.ZIndex = 0;
+            foreach (var node in _selected)
+                node.ZIndex = 0;
             _dragging = null;
+            _dragOrigins.Clear();
             e.Pointer.Capture(null);
             e.Handled = true;
             return;
@@ -237,6 +240,16 @@ public partial class NodeMap : UserControl
         if (_panning)
         {
             _panning = false;
+            e.Pointer.Capture(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (_marquee)
+        {
+            ApplyMarquee(point);
+            _marquee = false;
+            SelectionBox.IsVisible = false;
             e.Pointer.Capture(null);
             e.Handled = true;
         }
@@ -267,15 +280,16 @@ public partial class NodeMap : UserControl
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Key == Key.Delete && _selected != null)
+        if (e.Key == Key.Delete && _selected.Count > 0)
         {
-            Manager.Remove(_selected.InstanceId);
+            foreach (var id in _selected.Select(n => n.InstanceId).ToList())
+                Manager.Remove(id);
             e.Handled = true;
         }
         else if (e.Key == Key.Escape)
         {
             CancelPending();
-            Select(null);
+            ClearSelection();
             e.Handled = true;
         }
     }
@@ -320,19 +334,101 @@ public partial class NodeMap : UserControl
         if (!_controls.Remove(instance.Id, out var control))
             return;
         NodeLayer.Children.Remove(control);
-        if (_selected == control)
-            _selected = null;
+        _selected.Remove(control);
         UpdateMiniMapContent();
         UpdateMiniMapView();
     }
 
-    private void Select(NodeControl? control)
+    private void SelectOnly(NodeControl control)
     {
-        if (_selected != null)
-            _selected.IsSelected = false;
-        _selected = control;
-        if (_selected != null)
-            _selected.IsSelected = true;
+        ClearSelection();
+        _selected.Add(control);
+        control.IsSelected = true;
+    }
+
+    private void ClearSelection()
+    {
+        foreach (var node in _selected)
+            node.IsSelected = false;
+        _selected.Clear();
+    }
+
+    private void BeginDrag(NodeControl node, Point point)
+    {
+        _dragging = node;
+        _dragPointerStart = point;
+        _dragOrigins.Clear();
+        foreach (var selected in _selected)
+        {
+            selected.ZIndex = _controls.Count + 1;
+            _dragOrigins[selected] = new Point(Canvas.GetLeft(selected), Canvas.GetTop(selected));
+        }
+    }
+
+    private void MoveSelection(Point point)
+    {
+        var worldDelta = (point - _dragPointerStart) / _scale;
+        foreach (var (node, origin) in _dragOrigins)
+        {
+            var x = origin.X + worldDelta.X;
+            var y = origin.Y + worldDelta.Y;
+            Canvas.SetLeft(node, x);
+            Canvas.SetTop(node, y);
+            var instance = Manager.GetInstance(node.InstanceId);
+            if (instance == null)
+                continue;
+            instance.X = x;
+            instance.Y = y;
+        }
+
+        UpdateWireGeometries();
+        UpdateMiniMapContent();
+        UpdateMiniMapView();
+    }
+
+    private void UpdateMarquee(Point point)
+    {
+        var x = Math.Min(_marqueeStart.X, point.X);
+        var y = Math.Min(_marqueeStart.Y, point.Y);
+        var w = Math.Abs(point.X - _marqueeStart.X);
+        var h = Math.Abs(point.Y - _marqueeStart.Y);
+        Canvas.SetLeft(SelectionBox, x);
+        Canvas.SetTop(SelectionBox, y);
+        SelectionBox.Width = w;
+        SelectionBox.Height = h;
+        SelectionBox.IsVisible = w > 2 || h > 2;
+    }
+
+    private void ApplyMarquee(Point point)
+    {
+        var a = ToWorld(_marqueeStart);
+        var b = ToWorld(point);
+        var box = new Rect(
+            Math.Min(a.X, b.X),
+            Math.Min(a.Y, b.Y),
+            Math.Max(Math.Abs(b.X - a.X), 1),
+            Math.Max(Math.Abs(b.Y - a.Y), 1));
+        ClearSelection();
+        foreach (var node in _controls.Values)
+        {
+            if (!box.Intersects(NodeWorldRect(node)))
+                continue;
+            _selected.Add(node);
+            node.IsSelected = true;
+        }
+    }
+
+    private static Rect NodeWorldRect(NodeControl node)
+    {
+        var x = Canvas.GetLeft(node);
+        var y = Canvas.GetTop(node);
+        if (double.IsNaN(x))
+            x = 0;
+        if (double.IsNaN(y))
+            y = 0;
+        var w = node.Bounds.Width > 0 ? node.Bounds.Width : node.MinWidth;
+        var h = node.Bounds.Height > 0 ? node.Bounds.Height : node.MinHeight;
+        return new Rect(x, y, Math.Max(w, 1), Math.Max(h, 1));
     }
 
     private void HandlePinPressed(NodePinControl pin)
