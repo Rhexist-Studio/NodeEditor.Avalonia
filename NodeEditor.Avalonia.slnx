@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="NodeEditor.Avalonia.Demo/NodeEditor.Avalonia.Demo.csproj" />
+  <Project Path="NodeEditor.Avalonia/NodeEditor.Avalonia.csproj" />
+</Solution>

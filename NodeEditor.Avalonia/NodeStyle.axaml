@@ -1,0 +1,13 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <x:Double x:Key="NodeMinWidth">300</x:Double>
+        <x:Double x:Key="NodeMinHeight">120</x:Double>
+        <GridLength x:Key="NodeTitleBarHeight">32</GridLength>
+        <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+        <CornerRadius x:Key="ControlCornerRadius1">6,6,0,0</CornerRadius>
+        <Thickness x:Key="ControlBorderThickness">3</Thickness>
+    </Styles.Resources>
+
+    <StyleInclude Source="avares://NodeEditor.Avalonia/Control/NodeControl.axaml"></StyleInclude>
+</Styles>

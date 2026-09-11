@@ -1,0 +1,42 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:NodeEditor.Avalonia.Control">
+    <Design.PreviewWith>
+        <controls:NodeControl />
+    </Design.PreviewWith>
+
+    <Style Selector="controls|NodeControl">
+        <Setter Property="MinWidth" Value="{DynamicResource NodeMinWidth}"></Setter>
+        <Setter Property="MinHeight" Value="{DynamicResource NodeMinHeight}"></Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border CornerRadius="{DynamicResource ControlCornerRadius}"
+                            BorderThickness="{DynamicResource ControlBorderThickness}"
+                            BorderBrush="#C8313131"
+                            ClipToBounds="True">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="{DynamicResource NodeTitleBarHeight}" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+        
+                            <Border Grid.Row="0"
+                                    Background="DarkRed"
+                                    CornerRadius="{DynamicResource ControlCornerRadius1}">
+                                <Grid ColumnDefinitions="*,Auto"
+                                      HorizontalAlignment="Stretch">
+                                    <TextBlock Grid.Column="0"
+                                               Text="Node Title"
+                                               Foreground="White"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>
