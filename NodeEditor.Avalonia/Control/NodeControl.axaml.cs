@@ -25,10 +25,21 @@ public class NodeControl : TemplatedControl
     public static readonly StyledProperty<bool> IsSelectedProperty =
         AvaloniaProperty.Register<NodeControl, bool>(nameof(IsSelected));
 
+    public static readonly StyledProperty<bool> IsDataSourceProperty =
+        AvaloniaProperty.Register<NodeControl, bool>(nameof(IsDataSource));
+
+    public static readonly StyledProperty<NodeValueKind> ValueKindProperty =
+        AvaloniaProperty.Register<NodeControl, NodeValueKind>(nameof(ValueKind));
+
+    public static readonly StyledProperty<object?> ValueProperty =
+        AvaloniaProperty.Register<NodeControl, object?>(nameof(Value));
+
     public static readonly DirectProperty<NodeControl, Guid> InstanceIdProperty =
         AvaloniaProperty.RegisterDirect<NodeControl, Guid>(nameof(InstanceId), o => o.InstanceId);
 
     private Border? _titleBar;
+    private ContentControl? _valueHost;
+    private NodeInstance? _instance;
     private Guid _instanceId;
 
     public string Title
@@ -61,6 +72,24 @@ public class NodeControl : TemplatedControl
         set => SetValue(IsSelectedProperty, value);
     }
 
+    public bool IsDataSource
+    {
+        get => GetValue(IsDataSourceProperty);
+        set => SetValue(IsDataSourceProperty, value);
+    }
+
+    public NodeValueKind ValueKind
+    {
+        get => GetValue(ValueKindProperty);
+        set => SetValue(ValueKindProperty, value);
+    }
+
+    public object? Value
+    {
+        get => GetValue(ValueProperty);
+        set => SetValue(ValueProperty, value);
+    }
+
     public Guid InstanceId
     {
         get => _instanceId;
@@ -72,15 +101,21 @@ public class NodeControl : TemplatedControl
     /// </summary>
     public void BindInstance(NodeInstance instance)
     {
+        _instance = instance;
         InstanceId = instance.Id;
         Title = instance.Definition.Title;
         TitleBrush = new SolidColorBrush(instance.Definition.TitleColor);
+        var data = instance.Definition.ValueKind != null;
         Inputs = instance.Definition.Inputs
             .Select(p => new NodePinView(instance.Id, p.Index, p.Name, false))
             .ToList();
         Outputs = instance.Definition.Outputs
-            .Select(p => new NodePinView(instance.Id, p.Index, p.Name, true))
+            .Select(p => new NodePinView(instance.Id, p.Index, p.Name, true, !data))
             .ToList();
+        IsDataSource = instance.Definition.ValueKind != null;
+        ValueKind = instance.Definition.ValueKind ?? NodeValueKind.String;
+        Value = instance.Value;
+        AttachEditor();
     }
 
     /// <summary>
@@ -107,5 +142,94 @@ public class NodeControl : TemplatedControl
     {
         base.OnApplyTemplate(e);
         _titleBar = e.NameScope.Find<Border>("PART_TitleBar");
+        _valueHost = e.NameScope.Find<ContentControl>("PART_ValueHost");
+        AttachEditor();
+    }
+
+    private void AttachEditor()
+    {
+        if (_valueHost == null || _instance?.Definition.ValueKind == null)
+            return;
+        _valueHost.Content = CreateEditor(_instance.Definition.ValueKind.Value, _instance.Value);
+    }
+
+    private global::Avalonia.Controls.Control CreateEditor(NodeValueKind kind, object? value)
+    {
+        return kind switch
+        {
+            NodeValueKind.Bool => CreateBoolEditor(value),
+            NodeValueKind.String => CreateTextEditor(value, false),
+            _ => CreateTextEditor(value, true)
+        };
+    }
+
+    private CheckBox CreateBoolEditor(object? value)
+    {
+        var box = new CheckBox
+        {
+            Content = "Value",
+            IsChecked = value is true,
+            Foreground = Brushes.White
+        };
+        box.IsCheckedChanged += (_, _) => Commit(box.IsChecked == true);
+        return box;
+    }
+
+    private TextBox CreateTextEditor(object? value, bool numeric)
+    {
+        var box = new TextBox
+        {
+            Text = value?.ToString() ?? "",
+            MinHeight = 28,
+            Padding = new Thickness(6, 2)
+        };
+        box.LostFocus += (_, _) => CommitText(box.Text, numeric);
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key == global::Avalonia.Input.Key.Enter)
+            {
+                CommitText(box.Text, numeric);
+                e.Handled = true;
+            }
+        };
+        return box;
+    }
+
+    private void CommitText(string? text, bool numeric)
+    {
+        if (_instance?.Definition.ValueKind == null)
+            return;
+        if (!numeric)
+        {
+            Commit(text ?? "");
+            return;
+        }
+
+        Commit(Parse(_instance.Definition.ValueKind.Value, text));
+    }
+
+    private void Commit(object? value)
+    {
+        if (_instance == null)
+            return;
+        _instance.Value = value;
+        Value = value;
+    }
+
+    private static object Parse(NodeValueKind kind, string? text)
+    {
+        text ??= "";
+        return kind switch
+        {
+            NodeValueKind.Int when int.TryParse(text, out var i) => i,
+            NodeValueKind.Long when long.TryParse(text, out var l) => l,
+            NodeValueKind.Float when float.TryParse(text, out var f) => f,
+            NodeValueKind.Double when double.TryParse(text, out var d) => d,
+            NodeValueKind.Int => 0,
+            NodeValueKind.Long => 0L,
+            NodeValueKind.Float => 0f,
+            NodeValueKind.Double => 0d,
+            _ => text
+        };
     }
 }

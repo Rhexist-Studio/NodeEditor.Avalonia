@@ -13,7 +13,6 @@ namespace NodeEditor.Avalonia.Control;
 
 public sealed class ConnectionWire : Panel
 {
-    private static readonly IBrush CoreBrush = new SolidColorBrush(Color.Parse("#C8C8C8"));
     private static readonly IBrush GlowBrush = new SolidColorBrush(Color.Parse("#FFD54F"));
     private readonly WirePath _glow;
     private readonly WirePath _core;
@@ -39,7 +38,6 @@ public sealed class ConnectionWire : Panel
         };
         _core = new WirePath
         {
-            Stroke = CoreBrush,
             StrokeThickness = WireStyle.CoreThickness,
             StrokeLineCap = PenLineCap.Round,
             StrokeJoin = PenLineJoin.Round,
@@ -61,14 +59,24 @@ public sealed class ConnectionWire : Panel
     public NodeConnection Connection { get; }
 
     /// <summary>
-    /// 按连线两端点更新核心线和绕线一圈的闭合虚线轮廓。
+    /// 按连线两端点和两端标题色更新几何；线色为两个 Title Bar 颜色的融合渐变。
     /// </summary>
-    public void SetGeometry(Point start, Point end)
+    public void SetGeometry(Point start, Point end, Color fromColor, Color toColor)
     {
         _core.Data = WireGeometry.BuildCore(start, end);
         _hit.Data = WireGeometry.BuildCore(start, end);
         _glow.Data = WireGeometry.BuildOutline(start, end, WireStyle.OutlineRadius);
+        _core.Stroke = new SolidColorBrush(Blend(fromColor, toColor));
         InvalidateMeasure();
+    }
+
+    private static Color Blend(Color a, Color b)
+    {
+        return Color.FromArgb(
+            255,
+            (byte)((a.R + b.R) / 2),
+            (byte)((a.G + b.G) / 2),
+            (byte)((a.B + b.B) / 2));
     }
 
     /// <summary>

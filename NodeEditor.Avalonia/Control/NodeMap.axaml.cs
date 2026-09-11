@@ -102,6 +102,8 @@ public partial class NodeMap : UserControl
         {
             CancelPending();
             Select(node);
+            if (IsEditorSource(e.Source))
+                return;
             if (props.IsLeftButtonPressed && node.IsHeaderSource(e.Source as Visual))
             {
                 _dragging = node;
@@ -381,7 +383,7 @@ public partial class NodeMap : UserControl
         var keep = new HashSet<NodeConnection>();
         foreach (var connection in Manager.Connections)
         {
-            if (!TryGetWireEnds(connection, out var start, out var end))
+            if (!TryGetWireVisual(connection, out var start, out var end, out var fromColor, out var toColor))
                 continue;
             keep.Add(connection);
             if (!_wires.TryGetValue(connection, out var wire))
@@ -390,7 +392,7 @@ public partial class NodeMap : UserControl
                 _wires[connection] = wire;
                 ConnectionLayer.Children.Insert(0, wire);
             }
-            wire.SetGeometry(start, end);
+            wire.SetGeometry(start, end, fromColor, toColor);
         }
 
         foreach (var stale in _wires.Keys.Where(k => !keep.Contains(k)).ToList())
@@ -409,15 +411,22 @@ public partial class NodeMap : UserControl
     {
         foreach (var (connection, wire) in _wires)
         {
-            if (TryGetWireEnds(connection, out var start, out var end))
-                wire.SetGeometry(start, end);
+            if (TryGetWireVisual(connection, out var start, out var end, out var fromColor, out var toColor))
+                wire.SetGeometry(start, end, fromColor, toColor);
         }
     }
 
-    private bool TryGetWireEnds(NodeConnection connection, out Point start, out Point end)
+    private bool TryGetWireVisual(
+        NodeConnection connection,
+        out Point start,
+        out Point end,
+        out Color fromColor,
+        out Color toColor)
     {
         start = default;
         end = default;
+        fromColor = Colors.Gray;
+        toColor = Colors.Gray;
         if (!_controls.TryGetValue(connection.FromNodeId, out var fromNode))
             return false;
         if (!_controls.TryGetValue(connection.ToNodeId, out var toNode))
@@ -432,6 +441,12 @@ public partial class NodeMap : UserControl
             return false;
         start = from.Value;
         end = to.Value;
+        var fromInstance = Manager.GetInstance(connection.FromNodeId);
+        var toInstance = Manager.GetInstance(connection.ToNodeId);
+        if (fromInstance != null)
+            fromColor = fromInstance.Definition.TitleColor;
+        if (toInstance != null)
+            toColor = toInstance.Definition.TitleColor;
         return true;
     }
 
@@ -451,14 +466,23 @@ public partial class NodeMap : UserControl
     private void OpenCreateMenu(Point world)
     {
         var menu = new ContextMenu { Placement = PlacementMode.Pointer };
+        var data = new MenuItem { Header = "Data" };
+        var nodes = new MenuItem { Header = "Nodes" };
         foreach (var definition in Manager.Definitions)
         {
             var item = new MenuItem { Header = definition.Title };
             var name = definition.Name;
             item.Click += (_, _) => Manager.Create(name, world.X, world.Y);
-            menu.Items.Add(item);
+            if (definition.ValueKind != null)
+                data.Items.Add(item);
+            else
+                nodes.Items.Add(item);
         }
 
+        if (data.Items.Count > 0)
+            menu.Items.Add(data);
+        if (nodes.Items.Count > 0)
+            menu.Items.Add(nodes);
         if (menu.Items.Count == 0)
             return;
         menu.Open(this);
@@ -497,6 +521,11 @@ public partial class NodeMap : UserControl
         pin = FindAncestor<NodePinControl>(source)!;
         node = FindAncestor<NodeControl>(source)!;
         return pin != null && node != null;
+    }
+
+    private static bool IsEditorSource(object? source)
+    {
+        return FindAncestor<TextBox>(source) != null || FindAncestor<CheckBox>(source) != null;
     }
 
     private static bool FindNode(object? source, out NodeControl node)

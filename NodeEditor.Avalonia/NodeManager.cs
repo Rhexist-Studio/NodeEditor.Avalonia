@@ -51,6 +51,58 @@ public sealed class NodeManager
     }
 
     /// <summary>
+    /// 注册数据源节点。kind 决定可编辑值和导出类型，只有一个输出端点 Value，无输入。
+    /// </summary>
+    public NodeDefinition RegisterDataSource(string name, string title, Color titleColor, NodeValueKind kind)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("name is required", nameof(name));
+        if (string.IsNullOrWhiteSpace(title))
+            throw new ArgumentException("title is required", nameof(title));
+
+        var trimmed = name.Trim();
+        if (_byName.ContainsKey(trimmed))
+            throw new InvalidOperationException($"node '{trimmed}' already registered");
+
+        var ns = ToNamespace(trimmed);
+        if (_byNamespace.ContainsKey(ns))
+            throw new InvalidOperationException($"namespace '{ns}' already registered");
+
+        var definition = new NodeDefinition(
+            trimmed,
+            ns,
+            title,
+            titleColor,
+            [],
+            [new NodePinDefinition("Value", 0)],
+            kind);
+        _byName[trimmed] = definition;
+        _byNamespace[ns] = definition;
+        return definition;
+    }
+
+    /// <summary>
+    /// 注册数据源节点，titleColor 为可解析颜色字符串。其余参数与 RegisterDataSource(name, title, Color, kind) 相同。
+    /// </summary>
+    public NodeDefinition RegisterDataSource(string name, string title, string titleColor, NodeValueKind kind)
+    {
+        return RegisterDataSource(name, title, Color.Parse(titleColor), kind);
+    }
+
+    /// <summary>
+    /// 一次性注册常用数据源：Int / Long / Float / Double / String / Bool，导出类型为 node:int 这类命名空间。
+    /// </summary>
+    public void RegisterCommonDataSources()
+    {
+        RegisterDataSource("Int", "Int", "#2F6FED", NodeValueKind.Int);
+        RegisterDataSource("Long", "Long", "#1F5FBF", NodeValueKind.Long);
+        RegisterDataSource("Float", "Float", "#7A4AE0", NodeValueKind.Float);
+        RegisterDataSource("Double", "Double", "#5B32B8", NodeValueKind.Double);
+        RegisterDataSource("String", "String", "#C46B1A", NodeValueKind.String);
+        RegisterDataSource("Bool", "Bool", "#2E8B57", NodeValueKind.Bool);
+    }
+
+    /// <summary>
     /// 注册节点类型，titleColor 为可解析颜色字符串，如 #8B1E1E 或 DarkRed。其余参数与 Register(name, title, Color, ...) 相同。
     /// </summary>
     public NodeDefinition Register(
@@ -194,6 +246,7 @@ public sealed class NodeManager
                 Title = instance.Definition.Title,
                 X = instance.X,
                 Y = instance.Y,
+                Value = instance.Value,
                 Inputs = inputs,
                 Outputs = outputs
             });

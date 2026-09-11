@@ -11,8 +11,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         RegisterDemoNodes(Editor.Manager);
-        Editor.CreateNode("SendMessage", 80, 120);
-        Editor.CreateNode("Print", 520, 200);
+        Editor.CreateNode("Int", 80, 40);
+        Editor.CreateNode("String", 80, 200);
+        Editor.CreateNode("Bool", 80, 360);
+        Editor.CreateNode("SendMessage", 420, 80);
+        Editor.CreateNode("Print", 420, 280);
     }
 
     /// <summary>
@@ -20,6 +23,7 @@ public partial class MainWindow : Window
     /// </summary>
     private static void RegisterDemoNodes(NodeManager manager)
     {
+        manager.RegisterCommonDataSources();
         manager.Register(
             "SendMessage",
             "Send Message",

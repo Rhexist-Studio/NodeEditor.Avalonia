@@ -8,6 +8,7 @@ public sealed class NodeDefinition
     public string Namespace { get; }
     public string Title { get; }
     public Color TitleColor { get; }
+    public NodeValueKind? ValueKind { get; }
     public IReadOnlyList<NodePinDefinition> Inputs { get; }
     public IReadOnlyList<NodePinDefinition> Outputs { get; }
 
@@ -17,7 +18,8 @@ public sealed class NodeDefinition
         string title,
         Color titleColor,
         IReadOnlyList<NodePinDefinition> inputs,
-        IReadOnlyList<NodePinDefinition> outputs)
+        IReadOnlyList<NodePinDefinition> outputs,
+        NodeValueKind? valueKind = null)
     {
         Name = name;
         Namespace = ns;
@@ -25,5 +27,6 @@ public sealed class NodeDefinition
         TitleColor = titleColor;
         Inputs = inputs;
         Outputs = outputs;
+        ValueKind = valueKind;
     }
 }
