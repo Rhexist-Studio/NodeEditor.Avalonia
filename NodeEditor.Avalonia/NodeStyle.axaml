@@ -10,4 +10,5 @@
     </Styles.Resources>
 
     <StyleInclude Source="avares://NodeEditor.Avalonia/Control/NodeControl.axaml"></StyleInclude>
+    <StyleInclude Source="avares://NodeEditor.Avalonia/Control/NodePinControl.axaml"></StyleInclude>
 </Styles>

@@ -1,6 +1,7 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="using:NodeEditor.Avalonia.Control">
+        xmlns:controls="using:NodeEditor.Avalonia.Control"
+        xmlns:models="using:NodeEditor.Avalonia.Models">
     <Design.PreviewWith>
         <controls:NodeControl />
     </Design.PreviewWith>
@@ -8,35 +9,98 @@
     <Style Selector="controls|NodeControl">
         <Setter Property="MinWidth" Value="{DynamicResource NodeMinWidth}"></Setter>
         <Setter Property="MinHeight" Value="{DynamicResource NodeMinHeight}"></Setter>
+        <Setter Property="ClipToBounds" Value="False"/>
         <Setter Property="Template">
             <ControlTemplate>
-                <Panel>
-                    <Border CornerRadius="{DynamicResource ControlCornerRadius}"
+                <Panel ClipToBounds="False">
+                    <Border x:Name="PART_Root"
+                            Margin="8,0"
+                            CornerRadius="{DynamicResource ControlCornerRadius}"
                             BorderThickness="{DynamicResource ControlBorderThickness}"
                             BorderBrush="#C8313131"
-                            ClipToBounds="True">
+                            Background="#FF2B2B2B"
+                            ClipToBounds="False">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="{DynamicResource NodeTitleBarHeight}" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
-        
-                            <Border Grid.Row="0"
-                                    Background="DarkRed"
-                                    CornerRadius="{DynamicResource ControlCornerRadius1}">
+
+                            <Border x:Name="PART_TitleBar"
+                                    Grid.Row="0"
+                                    Background="{TemplateBinding TitleBrush}"
+                                    CornerRadius="{DynamicResource ControlCornerRadius1}"
+                                    Cursor="SizeAll">
                                 <Grid ColumnDefinitions="*,Auto"
                                       HorizontalAlignment="Stretch">
                                     <TextBlock Grid.Column="0"
-                                               Text="Node Title"
+                                               Text="{TemplateBinding Title}"
                                                Foreground="White"
                                                VerticalAlignment="Center"
                                                Margin="8,0" />
                                 </Grid>
                             </Border>
+
+                            <Grid Grid.Row="1"
+                                  ColumnDefinitions="*,*"
+                                  Margin="0,8,0,10">
+                                <ItemsControl Grid.Column="0"
+                                              ItemsSource="{TemplateBinding Inputs}"
+                                              HorizontalAlignment="Left"
+                                              VerticalAlignment="Top"
+                                              ClipToBounds="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:NodePinView">
+                                            <Grid ColumnDefinitions="Auto,*"
+                                                  Margin="0,6"
+                                                  MinHeight="18">
+                                                <controls:NodePinControl Grid.Column="0"
+                                                                         NodeId="{Binding NodeId}"
+                                                                         Index="{Binding Index}"
+                                                                         IsOutput="{Binding IsOutput}"
+                                                                         Margin="-8,0,8,0"
+                                                                         VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Name}"
+                                                           Foreground="White"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <ItemsControl Grid.Column="1"
+                                              ItemsSource="{TemplateBinding Outputs}"
+                                              HorizontalAlignment="Right"
+                                              VerticalAlignment="Top"
+                                              ClipToBounds="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:NodePinView">
+                                            <Grid ColumnDefinitions="*,Auto"
+                                                  Margin="0,6"
+                                                  MinHeight="18">
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding Name}"
+                                                           Foreground="White"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center"/>
+                                                <controls:NodePinControl Grid.Column="1"
+                                                                         NodeId="{Binding NodeId}"
+                                                                         Index="{Binding Index}"
+                                                                         IsOutput="{Binding IsOutput}"
+                                                                         Margin="8,0,-8,0"
+                                                                         VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
                         </Grid>
                     </Border>
                 </Panel>
             </ControlTemplate>
         </Setter>
+    </Style>
+    <Style Selector="controls|NodeControl[IsSelected=True] /template/ Border#PART_Root">
+        <Setter Property="BorderBrush" Value="#FF5B9BD5"/>
     </Style>
 </Styles>

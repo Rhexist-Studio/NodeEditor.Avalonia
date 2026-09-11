@@ -3,6 +3,16 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="NodeEditor.Avalonia.Control.NodeMap">
-    Welcome to Avalonia!
+             x:Class="NodeEditor.Avalonia.Control.NodeMap"
+             Focusable="True"
+             ClipToBounds="True"
+             Background="#FF1A1A1A">
+    <Canvas x:Name="World"
+            ClipToBounds="False"
+            RenderTransformOrigin="0,0"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+        <Canvas x:Name="ConnectionLayer" ClipToBounds="False"/>
+        <Canvas x:Name="NodeLayer" ClipToBounds="False"/>
+    </Canvas>
 </UserControl>

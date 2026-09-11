@@ -1,0 +1,26 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:NodeEditor.Avalonia.Control">
+    <Style Selector="controls|NodePinControl">
+        <Setter Property="Width" Value="22"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel Width="22" Height="22" Background="Transparent">
+                    <Ellipse Width="14"
+                             Height="14"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Fill="#E6E6E6"
+                             Stroke="#1A1A1A"
+                             StrokeThickness="2"/>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="controls|NodePinControl[IsActive=True] /template/ Ellipse">
+        <Setter Property="Fill" Value="#5B9BD5"/>
+        <Setter Property="Stroke" Value="#F2F2F2"/>
+    </Style>
+</Styles>

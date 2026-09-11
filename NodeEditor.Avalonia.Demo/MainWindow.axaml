@@ -5,9 +5,21 @@
         xmlns:control="clr-namespace:NodeEditor.Avalonia.Control;assembly=NodeEditor.Avalonia"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="NodeEditor.Avalonia.Demo.MainWindow"
-        Title="NodeEditor.Avalonia.Demo">
-    <Panel>
-        <control:NodeControl HorizontalAlignment="Left"
-                             VerticalAlignment="Top"/>
-    </Panel>
+        Title="NodeEditor.Avalonia.Demo"
+        Width="1280"
+        Height="720">
+    <DockPanel>
+        <Border DockPanel.Dock="Top"
+                Background="#FF252525"
+                Padding="8,6">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Export JSON" Click="OnExportClick"/>
+                <TextBlock x:Name="HintText"
+                           Text="右键空白处创建节点，拖标题移动，端点拖拽连线，右键端点/连线断开，Delete 删除"
+                           VerticalAlignment="Center"
+                           Opacity="0.7"/>
+            </StackPanel>
+        </Border>
+        <control:NodeMap x:Name="Editor"/>
+    </DockPanel>
 </Window>
